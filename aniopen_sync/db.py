@@ -10,7 +10,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from .config import Maintenance, Tracking
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 SCHEMA = """
 PRAGMA journal_mode=WAL;
 CREATE TABLE IF NOT EXISTS runs (
@@ -76,6 +76,12 @@ class Database:
                 "last_missing_at": "TEXT",
                 "recovery_requested": "INTEGER NOT NULL DEFAULT 0",
                 "rebuild_baseline_complete": "INTEGER NOT NULL DEFAULT 1",
+                "auto_retry_count": "INTEGER NOT NULL DEFAULT 0",
+                "auto_retry_gid": "TEXT",
+                "auto_retry_source_gid": "TEXT",
+                "auto_retry_state": "TEXT",
+                "auto_retry_due_at": "TEXT",
+                "auto_retry_error": "TEXT",
             }
             for name, kind in additions.items():
                 if name not in columns:
@@ -86,7 +92,7 @@ class Database:
             db.execute("INSERT OR IGNORE INTO seen SELECT identity,triggered_at FROM tasks")
             # 0.1 used rewritten URLs (or arbitrary GUIDs) as identity. Preserve
             # old IDs for retry/history, while anchoring durable dedup to original URLs.
-            if version < SCHEMA_VERSION:
+            if version < 2:
                 for row in db.execute("SELECT id,original_url,source_url,triggered_at FROM tasks").fetchall():
                     original = row["original_url"] or row["source_url"]
                     if not original:
@@ -256,6 +262,48 @@ class Database:
                 row[0]
                 for row in db.execute("SELECT engine_id FROM engine_attempts WHERE task_id=?", (task_id,))
             }
+
+    def begin_download_retry(self, task_id, source_gid, new_gid):
+        """Reserve the GID durably before any RPC can create a replacement task."""
+        with self.connect() as db:
+            timestamp = now()
+            cursor = db.execute(
+                """UPDATE tasks SET auto_retry_count=auto_retry_count+1,
+                auto_retry_gid=?,auto_retry_state='submitting',auto_retry_error=NULL,
+                auto_retry_due_at=NULL,updated_at=? WHERE id=? AND submission='submitted'
+                AND status='error' AND auto_retry_state='waiting' AND auto_retry_source_gid=?
+                AND COALESCE(current_engine_id,engine_id)=? AND auto_retry_due_at<=?""",
+                (new_gid, timestamp, task_id, source_gid, source_gid, timestamp),
+            )
+            if not cursor.rowcount:
+                return False
+            db.execute(
+                "INSERT INTO engine_attempts VALUES (?,?,?,?,?)",
+                (task_id, new_gid, timestamp, timestamp, "submitting"),
+            )
+            return True
+
+    def cancel_download_retries(self):
+        with self.connect() as db:
+            db.execute(
+                """UPDATE tasks SET auto_retry_state='cancelled',auto_retry_due_at=NULL,
+                auto_retry_error=NULL WHERE auto_retry_state='waiting'"""
+            )
+
+    def accept_download_retry(self, task_id, gid):
+        with self.connect() as db:
+            timestamp = now()
+            db.execute(
+                """UPDATE tasks SET current_engine_id=?,auto_retry_state='submitted',
+                auto_retry_due_at=NULL,auto_retry_error=NULL,status='waiting',progress=0,
+                downloaded=0,speed=0,error=NULL,terminal_at=NULL,next_observe_at=?,updated_at=?
+                WHERE id=? AND auto_retry_gid=? AND auto_retry_state IN ('submitting','unknown')""",
+                (gid, timestamp, timestamp, task_id, gid),
+            )
+            db.execute(
+                "UPDATE engine_attempts SET status='submitted',last_seen=? WHERE task_id=? AND engine_id=?",
+                (timestamp, task_id, gid),
+            )
 
     def identity_for_url(self, original_url, fallback):
         with self.connect() as db:

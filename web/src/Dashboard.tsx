@@ -497,6 +497,18 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
                     <Typography.Text>
                       RSS 原始文件名：{r.original_name}
                     </Typography.Text>
+                    {r.auto_retry_state && (
+                      <Typography.Text>
+                        自动重试：{({
+                          waiting: "等待重试", submitting: "正在发送", unknown: "提交结果待确认",
+                          submitted: "已提交", rejected: "引擎拒绝重试", exhausted: "已达次数上限",
+                          cancelled: "已取消等待",
+                        } as Obj)[r.auto_retry_state] || r.auto_retry_state}
+                        {` · 已尝试 ${r.auto_retry_count} 次`}
+                        {r.auto_retry_due_at && ` · 计划 ${fmt(r.auto_retry_due_at)}`}
+                        {r.auto_retry_error && ` · ${r.auto_retry_error}`}
+                      </Typography.Text>
+                    )}
                     {r.engine_attempts?.length > 0 && (
                       <Table
                         size="small"

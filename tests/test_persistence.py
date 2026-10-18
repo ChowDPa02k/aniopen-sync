@@ -130,3 +130,30 @@ def test_archived_url_alias_prevents_replay_if_guid_changes(tmp_path):
     db.maintenance()
     values["identity"] = "changed-guid-id"
     assert db.reserve_task(values) is None
+
+
+def test_v2_upgrade_preserves_history_and_backs_up_before_retry_columns(tmp_path):
+    path = tmp_path / "history.sqlite3"
+    db = Database(path)
+    values = row_values("v2-existing")
+    values.update(submission="submitted", engine_id="v2-original-gid")
+    task_id = db.reserve_task(values)
+    with db.connect() as connection:
+        connection.execute("INSERT INTO legacy_seen VALUES ('nas-existing-dedup')")
+        names = [r["name"] for r in connection.execute("PRAGMA table_info(tasks)")]
+        for name in names:
+            if name.startswith("auto_retry_"):
+                connection.execute(f"ALTER TABLE tasks DROP COLUMN {name}")
+        connection.execute("PRAGMA user_version=2")
+    db = Database(path)
+    row = db.task(task_id)
+    assert row["identity"] == "v2-existing" and row["auto_retry_count"] == 0
+    assert row["auto_retry_state"] is None and db.legacy_seen("nas-existing-dedup")
+    assert db.reserve_task(values) is None
+    backups = list((tmp_path / "backups").glob("history-v2-*.sqlite3"))
+    assert len(backups) == 1
+    with sqlite3.connect(backups[0]) as old:
+        assert old.execute("PRAGMA user_version").fetchone()[0] == 2
+        assert not any(r[1].startswith("auto_retry_") for r in old.execute("PRAGMA table_info(tasks)"))
+    Database(path)
+    assert len(list((tmp_path / "backups").glob("history-v2-*.sqlite3"))) == 1

@@ -216,10 +216,28 @@ class Maintenance(Model):
     backup_keep: int = Field(7, ge=1, le=30)
 
 
+class DownloadRetry(Model):
+    enabled: bool = False
+    delay_seconds: int = Field(600, ge=5, le=86400)
+    max_delay_seconds: int = Field(3600, ge=5, le=86400)
+    max_attempts: int = Field(10, ge=0, le=1000)
+    max_per_poll: int = Field(10, ge=1, le=100)
+    error_codes: list[Annotated[int, Field(ge=1, le=32)]] = Field(
+        default_factory=lambda: [2, 5, 6, 7, 19, 22, 29]
+    )
+
+    @model_validator(mode="after")
+    def valid_delay(self):
+        if self.max_delay_seconds < self.delay_seconds:
+            raise ValueError("最大重试间隔不能小于首次重试间隔")
+        return self
+
+
 class Config(Model):
     schema_version: Literal[2] = 2
     tracking: Tracking = Field(default_factory=Tracking)
     maintenance: Maintenance = Field(default_factory=Maintenance)
+    download_retry: DownloadRetry = Field(default_factory=DownloadRetry)
     source: Source = Field(default_factory=Source)
     schedule: Schedule = Field(default_factory=Schedule)
     downloaders: dict[str, Downloader] = Field(

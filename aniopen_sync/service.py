@@ -17,6 +17,7 @@ from .downloaders import Aria2, MissingTask, QBittorrent, Rejected, client, iden
 from .health import DependencyHealth
 from .network import fetch_bytes, upstream_session
 from .parser import AniParser, Release
+from .retry import HttpDownloadRetry
 from .storage import atomic_write
 from .torrents import hash_aliases
 
@@ -44,6 +45,7 @@ class Service:
         self.mapping_status = {"state": "not_loaded"}
         self.observation_note = None
         self.dependency_health = DependencyHealth(config)
+        self.download_retry = HttpDownloadRetry(config, db)
 
     def start(self):
         self.maintain()
@@ -123,6 +125,8 @@ class Service:
                 self.reschedule(old)
                 raise
             self.dependency_health.wakeup.set()
+            if not cfg.download_retry.enabled:
+                self.db.cancel_download_retries()
 
     def status(self):
         cfg = self.config.get()
@@ -137,6 +141,7 @@ class Service:
             "runs": self.db.runs(),
             "mapping": self.mapping_status,
             "observation_note": self.observation_note,
+            "download_retry_enabled": cfg.download_retry.enabled,
         }
 
     def trigger(self, trigger_type="manual"):
@@ -383,6 +388,7 @@ class Service:
             for row in self.db.observable(cfg.tracking, force, task_id):
                 groups[row["downloader"]].append(row)
             self.observation_note = None
+            retry_budget = cfg.download_retry.max_per_poll
             for name, rows in groups.items():
                 if self.stopping.is_set():
                     break
@@ -409,6 +415,7 @@ class Service:
                         continue
                     engine = client(downloader)
                     snapshots, uri_index = {}, defaultdict(set)
+                    scanned = False
                     if isinstance(engine, QBittorrent):
                         ids = set()
                         for row in eligible:
@@ -416,8 +423,9 @@ class Service:
                         ids = sorted(ids)
                         for offset in range(0, len(ids), 100):
                             snapshots.update(engine.observe_many(ids[offset : offset + 100]))
-                    elif cfg.tracking.external_rebuild_enabled:
+                    elif cfg.tracking.external_rebuild_enabled or (cfg.download_retry.enabled and not force):
                         snapshots = engine.list_snapshots(cfg.tracking.max_engine_results)
+                        scanned = True
                         if engine.scan_truncated or len(snapshots) >= cfg.tracking.max_engine_results:
                             self.observation_note = (
                                 "已达到引擎扫描上限，部分外部重建可能暂不可见；可提高扫描上限"
@@ -440,6 +448,7 @@ class Service:
                                 values = engine.snapshot(item) | {"current_engine_id": item["hash"]}
                                 self.db.attempt(row["id"], item["hash"], values["status"])
                             else:
+                                row = self.download_retry.reconcile(engine, row, snapshots)
                                 values = self._observe_aria(
                                     engine, row, snapshots, claimed, uri_index, cfg.tracking
                                 )
@@ -475,6 +484,17 @@ class Service:
                                 ),
                                 last_missing_at=None,
                             )
+                            if isinstance(engine, Aria2) and not force:
+                                sent = self.download_retry.process(
+                                    engine,
+                                    row["id"],
+                                    snapshots,
+                                    scanned
+                                    and not engine.scan_truncated
+                                    and len(snapshots) < cfg.tracking.max_engine_results,
+                                    retry_budget,
+                                )
+                                retry_budget -= int(sent)
                         except MissingTask as exc:
                             self.db.update(
                                 "tasks",

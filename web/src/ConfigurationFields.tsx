@@ -27,6 +27,11 @@ const labels: Record<string, string> = {
   history_max_records: "完成历史最多保留条数",
   retry_base_seconds: "发送前失败重试起始间隔（秒）",
   retry_max_seconds: "发送前失败最大重试间隔（秒）",
+  delay_seconds: "首次下载重试间隔（秒）",
+  max_delay_seconds: "最大下载重试间隔（秒）",
+  max_attempts: "每条 RSS 最多自动重试次数（0 为不限）",
+  max_per_poll: "每轮最多重试任务数",
+  error_codes: "允许重试的 aria2 错误码",
   sync_on_startup: "重启后补查 RSS",
   automatic_backups: "自动备份",
   backup_keep: "自动备份保留天数",
@@ -87,6 +92,8 @@ const hints: Record<string, string> = {
   save_path: "此目录相对于下载器的保存根目录。默认 TV/ANi。",
   download_base_path: "这是下载器容器内的路径，ANiOpen Sync 无需挂载媒体目录。",
   use_auto_torrent_management: "启用后保存位置由 qBittorrent 分类设置决定。",
+  delay_seconds: "失败后等待此间隔再重建；连续失败时指数退避至最大间隔。",
+  error_codes: "YAML 数字列表。默认重试网络故障与 HTTP 响应错误（含 403），不重试磁盘和权限错误。",
   online_mappings_enabled:
     "网络不可用时使用同一地址的缓存；没有缓存时使用内置规则和用户映射。",
 };
@@ -244,6 +251,10 @@ export function Fields({
               }}
             />
           );
+        else if (field.type === "array" && field.items?.type === "integer")
+          input = (
+            <YamlField value={current} onChange={change} onError={errors} path={fullPath} />
+          );
         else if (field.type === "array")
           input = (
             <Select
@@ -286,7 +297,9 @@ export function Fields({
             htmlFor={fullPath}
             key={key}
             label={labels[key] || key}
-            extra={hints[key]}
+            extra={path === "download_retry" && key === "enabled"
+              ? "仅重试本项目创建的 aria2 HTTP 失败任务。启用前请停用下载器端的失败重建回调，避免重复创建任务。"
+              : hints[key]}
           >
             {input}
           </Form.Item>

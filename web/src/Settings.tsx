@@ -305,6 +305,9 @@ export function Settings({
                   label: "长期运行",
                   children: (
                     <>
+                      <Card title="aria2 HTTP 自动重试" size="small" className="nested">
+                        {render("download_retry")}
+                      </Card>
                       {render("tracking")}
                       {render("maintenance")}
                       <Form.Item label="进度读取间隔（秒）">

@@ -65,3 +65,5 @@ jobs:
           python-version: '3.12'
       - run: uv sync --locked --extra dev
       - run: uv run python scripts/check_downloaders.py --qb-image ghcr.io/qbittorrent/docker-qbittorrent-nox:${{ matrix.qbit }}
+      - if: matrix.qbit == '5.0.2-1'
+        run: uv run python scripts/check_http_retry.py --aria-image aniopen-sync-contract-aria:local

@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
 import { checkSyncLayout } from "./layout.mjs";
+import { parse } from "yaml";
 
 const url = process.env.ANIOPEN_TEST_URL;
 const token = process.env.ANIOPEN_TEST_TOKEN;
@@ -30,6 +31,16 @@ try {
   await page.getByRole("button", { name: "进入控制台", exact: true }).click();
   await checkSyncLayout(page);
   await page.getByRole("link", { name: "配置中心" }).click();
+  await page.getByRole("tab", { name: "长期运行", exact: true }).click();
+  const retryCard = page.locator(".ant-card").filter({ has: page.getByText("aria2 HTTP 自动重试", { exact: true }) }).last();
+  const retrySwitch = retryCard.getByRole("switch");
+  assert.equal(await retrySwitch.getAttribute("aria-checked"), "false");
+  await retrySwitch.click();
+  await page.getByRole("tab", { name: "完整 YAML", exact: true }).click();
+  assert.equal(parse(await page.locator("textarea.yaml").inputValue()).download_retry.enabled, true);
+  await page.getByRole("tab", { name: "可视化配置", exact: true }).click();
+  await page.getByRole("tab", { name: "长期运行", exact: true }).click();
+  await retrySwitch.click();
   await page.getByRole("tab", { name: "完整 YAML", exact: true }).click();
   const yaml = page.locator("textarea.yaml");
   const initial = await yaml.inputValue();
@@ -105,6 +116,7 @@ try {
   console.log(
     JSON.stringify({
       browser_login: "passed",
+      retry_switch_and_yaml: "passed",
       schema_forms: "passed",
       timezone_preset: "passed",
       masked_yaml: "passed",

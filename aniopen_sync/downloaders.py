@@ -1,4 +1,4 @@
-"""Submission plus read-only observation. No task control or deletion methods."""
+"""RSS submission, read-only observation and opt-in aria2 HTTP retry preparation."""
 
 import posixpath
 import secrets
@@ -211,6 +211,37 @@ class Aria2:
             self.last_result = result
             return self.snapshot(result)
         raise ValueError("aria2 元数据任务引用形成循环")
+
+    def prepare_retry(self, row, error_codes):
+        gid = row["current_engine_id"] or row["engine_id"]
+        result = self.rpc("tellStatus", gid, self.STATUS_KEYS)
+        if result["status"] != "error" or str(result.get("errorCode", "")) not in {
+            str(c) for c in error_codes
+        }:
+            raise ValueError("任务已不符合自动重试条件，等待下一次状态读取")
+        if result.get("infoHash") or len(result.get("files", [])) != 1:
+            raise ValueError("自动重试仅支持 aria2 HTTP 单文件任务")
+        entries = result["files"][0].get("uris", [])
+        used = [item for item in entries if item.get("status") == "used"]
+        urls = list(
+            dict.fromkeys(
+                item["uri"]
+                for item in (used or entries)
+                if item.get("uri", "").startswith(("http://", "https://"))
+            )
+        )
+        if not urls:
+            raise ValueError("失败任务没有可重试的 HTTP 来源地址")
+        options = dict(self.rpc("getOption", gid))
+        directory = posixpath.normpath(options.get("dir", ""))
+        if directory != posixpath.normpath(row["target_directory"] or ""):
+            raise ValueError("任务保存目录已改变，停止自动重试")
+        target = row["target_path"] or ""
+        if not target or posixpath.dirname(target) != directory:
+            raise ValueError("无法确认原任务保存文件，停止自动重试")
+        options.pop("gid", None)
+        options["out"] = posixpath.basename(target)
+        return urls, options
 
 
 class QBittorrent:
