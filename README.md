@@ -4,6 +4,8 @@
 
 ANiOpen Sync 定时读取 ANi RSS，把新番剧集提交给 aria2 或 qBittorrent，并在网页中提供配置、手动同步和下载进度。解析器移植自 [Kubespider](https://github.com/opennaslab/kubespider)，保留其季集识别规则。
 
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/13249991-dd21-47bf-92f2-0fdd5493b23f" />
+
 ## 功能
 
 - 支持 ANi 的直链 RSS 与 Torrent RSS。直链交给 aria2，Torrent 可使用 aria2 或 qBittorrent。
