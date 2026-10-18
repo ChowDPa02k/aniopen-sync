@@ -89,7 +89,6 @@ body {
   margin-left: auto;
 }
 .release-name {
-  max-width: 520px;
   min-width: 270px;
   overflow-wrap: anywhere;
 }
