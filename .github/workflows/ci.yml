@@ -1,0 +1,67 @@
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        python: ['3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          version: '0.10.7'
+          python-version: ${{ matrix.python }}
+      - run: uv sync --locked --extra dev
+      - run: uv run ruff check aniopen_sync tests scripts
+      - run: uv run ruff format --check aniopen_sync tests scripts
+      - run: uv run pytest -q
+      - run: uv build && uv run python scripts/check_sdist.py
+      - if: matrix.python == '3.12'
+        run: uvx pip-audit --path .venv/lib/python3.12/site-packages --progress-spinner off
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci && npm test && npm run build && npm audit --audit-level=high --registry=https://registry.npmjs.org
+        working-directory: web
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          version: '0.10.7'
+          python-version: '3.12'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+      - run: uv sync --locked --extra dev
+      - run: npm ci && npx playwright install --with-deps chromium
+        working-directory: web
+      - run: uv run python scripts/check_compose.py --browser
+  downloaders:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        qbit: ['4.6.1-1', '5.0.2-1', '5.2.4-lt2-1']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          version: '0.10.7'
+          python-version: '3.12'
+      - run: uv sync --locked --extra dev
+      - run: uv run python scripts/check_downloaders.py --qb-image ghcr.io/qbittorrent/docker-qbittorrent-nox:${{ matrix.qbit }}

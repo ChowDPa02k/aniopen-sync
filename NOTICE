@@ -1,0 +1,11 @@
+ANiOpen Sync
+
+Includes ANi title/season parsing logic derived from Kubespider:
+https://github.com/opennaslab/kubespider
+Source revision: ba6b1bdc92e628cd513a06ce1efd6d95a0bde18b
+Original file: kubespider/source_provider/ani_source_provider/provider.py
+Copyright the Kubespider contributors. Licensed under the Apache License, Version 2.0.
+
+Modified: extracted ANi-only parsing; removed the provider framework; added safe paths,
+RSS link fallbacks, normalized metadata, and explicit HTTP/torrent naming behavior.
+The original Apache-2.0 license is included in LICENSE.

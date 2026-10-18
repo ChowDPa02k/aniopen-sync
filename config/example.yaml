@@ -1,0 +1,77 @@
+schema_version: 2
+tracking:
+  external_rebuild_enabled: true
+  terminal_watch_hours: 24
+  error_poll_seconds: 300
+  completed_poll_seconds: 300
+  lost_poll_seconds: 60
+  max_tasks_per_poll: 1000
+  max_engine_results: 5000
+maintenance:
+  history_retention_days: 180
+  history_max_records: 20000
+  retry_base_seconds: 60
+  retry_max_seconds: 3600
+  sync_on_startup: true
+  automatic_backups: true
+  backup_keep: 7
+source:
+  enabled: false
+  api_type: http
+  downloader: aria2
+  rss_link: https://api.ani.rip/ani-download.xml
+  rss_link_torrent: https://api.ani.rip/ani-torrent.xml
+  save_path: TV/ANi
+  classification_on_directory: true
+  blacklist: []
+  custom_season_mapping: {}
+  season_episode_adjustment: {}
+  use_sub_category: true
+  custom_category_mapping: {}
+  download_param:
+    category: ANi
+    tags:
+    - ANi
+    use_auto_torrent_management: false
+  online_mappings_enabled: true
+  online_mappings_url: https://cdn.jsdelivr.net/gh/ChowDPa02k/ani-tmdb-mapper@main/mappings_kubespider.json
+  proxy: ''
+  request_timeout: 30
+  max_feed_bytes: 4194304
+  max_torrent_bytes: 8388608
+  url_rewrites:
+    resources.ani.rip: cloud.ani-download.workers.dev
+schedule:
+  enabled: true
+  timezone: Asia/Shanghai
+  trigger: cron
+  cron:
+    minute: 6,36
+    second: '30'
+  interval:
+    minutes: 30
+  run_date: '2030-01-01T00:00:00+08:00'
+  misfire_grace_time: 300
+  coalesce: true
+downloaders:
+  aria2:
+    type: aria2
+    enabled: true
+    endpoint: http://127.0.0.1:6800/jsonrpc
+    download_base_path: /downloads
+    secret: ''
+    username: ''
+    password: ''
+    verify_certificate: true
+    timeout: 15
+  qbittorrent:
+    type: qbittorrent
+    enabled: false
+    endpoint: http://127.0.0.1:8080
+    download_base_path: /downloads
+    secret: ''
+    username: ''
+    password: ''
+    verify_certificate: true
+    timeout: 15
+progress_poll_seconds: 15

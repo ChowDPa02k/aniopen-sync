@@ -1,0 +1,13 @@
+.git
+.venv
+**/__pycache__
+web/node_modules
+web/dist
+data
+.env
+.pytest_cache
+.ruff_cache
+
+private
+dist
+docs/open-source-*.md

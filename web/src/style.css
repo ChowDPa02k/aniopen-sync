@@ -1,0 +1,152 @@
+body {
+  margin: 0;
+  background: #f4f6fa;
+  color: #172b4d;
+}
+* {
+  box-sizing: border-box;
+}
+.site-icon {
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+.stats {
+  flex-shrink: 0;
+  margin-bottom: 22px;
+}
+.stats .ant-card {
+  border: 1px solid #e7ecf3;
+}
+.stats .ant-statistic-content {
+  font-weight: 650;
+  letter-spacing: -0.6px;
+}
+.sync-layout {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+.sync-layout > .ant-layout,
+.sync-layout .ant-pro-layout-container {
+  height: 100%;
+  min-height: 0;
+}
+.sync-layout .ant-pro-layout-content {
+  min-height: 0;
+  overflow: hidden;
+}
+.sync-page,
+.sync-page > .ant-pro-grid-content,
+.sync-page .ant-pro-grid-content-children,
+.sync-page .ant-pro-page-container-children-container {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.sync-page > .ant-pro-page-container-warp,
+.sync-page .ant-pro-page-container-children-container > .ant-alert {
+  flex-shrink: 0;
+}
+.tasks-table-viewport {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.tasks-table-viewport .ant-table-body {
+  height: var(--task-table-body-height);
+  overscroll-behavior: contain;
+}
+.task-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 8px 16px;
+  overflow-wrap: anywhere;
+}
+.schedule-line {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 8px 0 22px;
+  font-size: 13px;
+  color: #52627b;
+}
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #46a884;
+}
+.status-dot.busy {
+  background: #2563eb;
+  box-shadow: 0 0 0 4px #dbeafe;
+}
+.next-run {
+  margin-left: auto;
+}
+.release-name {
+  max-width: 520px;
+  min-width: 270px;
+  overflow-wrap: anywhere;
+}
+.release-meta {
+  font-size: 12px;
+  color: #6b7d96;
+  margin-top: 9px;
+}
+.release-meta .ant-tag {
+  margin-left: 6px;
+}
+.nested {
+  margin-bottom: 22px;
+}
+.yaml,
+.yaml textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  line-height: 1.65 !important;
+}
+.ant-form-vertical .ant-form-item {
+  max-width: 900px;
+}
+.ant-form-item-control-input .ant-select {
+  width: 100%;
+}
+.ant-form-item-control-input .ant-input-number {
+  min-width: 180px;
+}
+.login {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: #0d1524;
+}
+.login .ant-card {
+  width: min(420px, 90vw);
+}
+.ant-pro-page-container-children-container {
+  padding-top: 16px !important;
+}
+@media (max-width: 992px) {
+  .stats .ant-card-body {
+    padding: 12px 16px;
+  }
+  .stats .ant-statistic-content {
+    font-size: 24px;
+  }
+}
+@media (max-width: 600px) {
+  .schedule-line {
+    flex-wrap: wrap;
+  }
+  .next-run {
+    margin-left: 0;
+    width: 100%;
+  }
+  .ant-pro-page-container-children-container {
+    padding: 14px !important;
+  }
+}

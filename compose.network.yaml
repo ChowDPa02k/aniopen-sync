@@ -1,0 +1,9 @@
+# Optional: attach to a network that already contains your downloader.
+services:
+  aniopen-sync:
+    networks:
+      - downloads
+networks:
+  downloads:
+    external: true
+    name: ${ANIOPEN_DOWNLOADER_NETWORK:?Set the existing downloader network name}

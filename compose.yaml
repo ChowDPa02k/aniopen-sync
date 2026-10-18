@@ -1,0 +1,27 @@
+services:
+  aniopen-sync:
+    build: .
+    restart: unless-stopped
+    user: "${ANIOPEN_UID:-10001}:${ANIOPEN_GID:-10001}"
+    stop_grace_period: 120s
+    ports:
+      - "${ANIOPEN_BIND_ADDRESS:-0.0.0.0}:${ANIOPEN_PORT:-8090}:8090"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      ANIOPEN_API_TOKEN: ${ANIOPEN_API_TOKEN:-}
+      ANIOPEN_ALLOWED_HOSTS: ${ANIOPEN_ALLOWED_HOSTS:-}
+    volumes:
+      - aniopen-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=32m
+      - /run:rw,exec,nosuid,nodev,size=16m,mode=0700,uid=${ANIOPEN_UID:-10001},gid=${ANIOPEN_GID:-10001}
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  aniopen-data:

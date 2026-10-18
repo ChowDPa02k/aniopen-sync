@@ -1,0 +1,11 @@
+include .dockerignore .gitignore LICENSE NOTICE README.md CHANGELOG.md SECURITY.md CONTRIBUTING.md Dockerfile compose.yaml compose.network.yaml uv.lock
+include THIRD_PARTY_NOTICES
+recursive-include config *.yaml
+recursive-include tests *.py
+recursive-include scripts *.py
+recursive-include web *.json *.html *.ts *.tsx *.css *.mjs
+include docs/tracking.md docs/migration.md docs/operations.md docs/production-compatibility.md docs/audit-decisions-2026-10-18.md
+include .github/workflows/ci.yml
+prune web/node_modules
+prune web/dist
+global-exclude __pycache__ *.pyc .DS_Store
