@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Card,
+  Collapse,
   Form,
   Input,
   InputNumber,
@@ -93,7 +93,8 @@ const hints: Record<string, string> = {
   download_base_path: "这是下载器容器内的路径，ANiOpen Sync 无需挂载媒体目录。",
   use_auto_torrent_management: "启用后保存位置由 qBittorrent 分类设置决定。",
   delay_seconds: "失败后等待此间隔再重建；连续失败时指数退避至最大间隔。",
-  error_codes: "YAML 数字列表。默认重试网络故障与 HTTP 响应错误（含 403），不重试磁盘和权限错误。",
+  error_codes:
+    "YAML 数字列表。默认重试网络故障与 HTTP 响应错误（含 403），不重试磁盘和权限错误。",
   online_mappings_enabled:
     "网络不可用时使用同一地址的缓存；没有缓存时使用内置规则和用户映射。",
 };
@@ -149,6 +150,26 @@ function YamlField({
   );
 }
 
+export function FieldGroup({
+  title,
+  children,
+  extra,
+}: {
+  title: React.ReactNode;
+  children: React.ReactNode;
+  extra?: React.ReactNode;
+}) {
+  return (
+    <Collapse
+      className="settings-group"
+      defaultActiveKey={["fields"]}
+      items={[
+        { key: "fields", label: title, children, extra, forceRender: true },
+      ]}
+    />
+  );
+}
+
 export function Fields({
   schema,
   root,
@@ -157,6 +178,7 @@ export function Fields({
   path = "",
   errors,
   names,
+  only,
 }: {
   schema: Obj;
   root: Obj;
@@ -165,12 +187,14 @@ export function Fields({
   path?: string;
   errors: (k: string, e: boolean) => void;
   names: string[];
+  only?: string[];
 }) {
   const resolved = (s: Obj): Obj =>
     s.$ref ? root.$defs[s.$ref.split("/").pop()!] : s;
   return (
     <>
       {Object.entries(schema.properties || {}).map(([key, raw]) => {
+        if (only && !only.includes(key)) return null;
         const field = resolved(raw as Obj),
           current = value[key],
           fullPath = path + "." + key;
@@ -189,12 +213,7 @@ export function Fields({
           return null;
         if (field.properties)
           return (
-            <Card
-              key={key}
-              title={labels[key] || key}
-              size="small"
-              className="nested"
-            >
+            <FieldGroup key={key} title={labels[key] || key}>
               <Fields
                 schema={field}
                 root={root}
@@ -204,7 +223,7 @@ export function Fields({
                 errors={errors}
                 names={names}
               />
-            </Card>
+            </FieldGroup>
           );
         let input: React.ReactNode;
         if (field.enum)
@@ -253,7 +272,12 @@ export function Fields({
           );
         else if (field.type === "array" && field.items?.type === "integer")
           input = (
-            <YamlField value={current} onChange={change} onError={errors} path={fullPath} />
+            <YamlField
+              value={current}
+              onChange={change}
+              onError={errors}
+              path={fullPath}
+            />
           );
         else if (field.type === "array")
           input = (
@@ -297,9 +321,11 @@ export function Fields({
             htmlFor={fullPath}
             key={key}
             label={labels[key] || key}
-            extra={path === "download_retry" && key === "enabled"
-              ? "仅重试本项目创建的 aria2 HTTP 失败任务。启用前请停用下载器端的失败重建回调，避免重复创建任务。"
-              : hints[key]}
+            extra={
+              path === "download_retry" && key === "enabled"
+                ? "仅重试本项目创建的 aria2 HTTP 失败任务。启用前请停用下载器端的失败重建回调，避免重复创建任务。"
+                : hints[key]
+            }
           >
             {input}
           </Form.Item>

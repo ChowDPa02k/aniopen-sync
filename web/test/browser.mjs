@@ -1,9 +1,10 @@
 /** Browser contracts against a disposable Compose instance. No downloader is contacted. */
 import assert from "node:assert/strict";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import { checkSyncLayout } from "./layout.mjs";
 import { checkMobileSyncScroll } from "./mobile-layout.mjs";
 import { checkRssProgressDisplay } from "./rss-progress.mjs";
+import { checkSettingsLayout } from "./settings-layout.mjs";
 import { parse } from "yaml";
 
 const url = process.env.ANIOPEN_TEST_URL;
@@ -34,28 +35,37 @@ try {
   await checkSyncLayout(page);
   await checkMobileSyncScroll(browser, url, token);
   await checkRssProgressDisplay(page);
+  await page.bringToFront();
   await page.getByRole("link", { name: "配置中心" }).click();
+  await checkSettingsLayout(page);
   await page.getByRole("tab", { name: "长期运行", exact: true }).click();
-  const retryCard = page.locator(".ant-card").filter({ has: page.getByText("aria2 HTTP 自动重试", { exact: true }) }).last();
+  const retryCard = page
+    .locator(".settings-group")
+    .filter({ has: page.getByText("aria2 HTTP 自动重试", { exact: true }) })
+    .first();
   const retrySwitch = retryCard.getByRole("switch");
   assert.equal(await retrySwitch.getAttribute("aria-checked"), "false");
   await retrySwitch.click();
-  await page.getByRole("tab", { name: "完整 YAML", exact: true }).click();
-  assert.equal(parse(await page.locator("textarea.yaml").inputValue()).download_retry.enabled, true);
-  await page.getByRole("tab", { name: "可视化配置", exact: true }).click();
+  await page.getByRole("button", { name: "YAML模式", exact: true }).click();
+  assert.equal(
+    parse(await page.locator("textarea.yaml").inputValue()).download_retry
+      .enabled,
+    true,
+  );
+  await page.getByRole("button", { name: "表单模式", exact: true }).click();
   await page.getByRole("tab", { name: "长期运行", exact: true }).click();
   await retrySwitch.click();
-  await page.getByRole("tab", { name: "完整 YAML", exact: true }).click();
+  await page.getByRole("button", { name: "YAML模式", exact: true }).click();
   const yaml = page.locator("textarea.yaml");
   const initial = await yaml.inputValue();
   assert(
     initial.includes("********") && !initial.includes("smoke-only-secret"),
   );
   await yaml.fill(initial.replace("Asia/Shanghai", "UTC"));
-  await page.getByRole("tab", { name: "可视化配置", exact: true }).click();
+  await page.getByRole("button", { name: "表单模式", exact: true }).click();
   await page.getByRole("tab", { name: "同步计划", exact: true }).click();
   await page.getByRole("button", { name: "使用每小时 06:30 / 36:30" }).click();
-  await page.getByRole("tab", { name: "完整 YAML", exact: true }).click();
+  await page.getByRole("button", { name: "YAML模式", exact: true }).click();
   assert(
     (await yaml.inputValue()).includes("timezone: UTC"),
     "Preset must preserve timezone",
@@ -105,7 +115,7 @@ try {
   assert.equal(await yaml.inputValue(), unsaved);
   await page.getByRole("button", { name: "保存并应用", exact: true }).click();
   await page.getByText("未保存", { exact: true }).waitFor({ state: "hidden" });
-  await page.getByRole("tab", { name: "可视化配置", exact: true }).click();
+  await page.getByRole("button", { name: "表单模式", exact: true }).click();
   await page.getByRole("tab", { name: "下载器连接", exact: true }).click();
   await page.getByRole("button", { name: "添加下载器连接" }).click();
   await page.getByPlaceholder("例如 aria2-home").fill("contract-download");
@@ -113,7 +123,27 @@ try {
     .getByRole("dialog")
     .getByRole("button", { name: /确\s*定/ })
     .click();
+  await page
+    .getByRole("dialog")
+    .filter({ hasText: "添加下载器连接" })
+    .waitFor({ state: "hidden" });
   await page.getByText("contract-download", { exact: true }).waitFor();
+  const connection = page.locator(".settings-group").filter({
+    has: page.getByText("contract-download", { exact: true }),
+  });
+  await connection
+    .getByRole("button", { name: "移除连接", exact: true })
+    .focus();
+  await page.keyboard.press("Enter");
+  await expect(connection.locator(".ant-collapse-header")).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  await page
+    .getByRole("dialog")
+    .filter({ hasText: "移除连接 contract-download？" })
+    .getByRole("button", { name: /取\s*消/ })
+    .click();
   await page.getByRole("button", { name: "保存并应用", exact: true }).click();
   await page.getByText("未保存", { exact: true }).waitFor({ state: "hidden" });
   assert.deepEqual(errors, [], "Browser must not raise JavaScript errors");
@@ -124,6 +154,7 @@ try {
       rss_progress_display: "passed",
       retry_switch_and_yaml: "passed",
       schema_forms: "passed",
+      settings_toolbar_and_groups: "passed",
       timezone_preset: "passed",
       masked_yaml: "passed",
       dirty_guards: "passed",

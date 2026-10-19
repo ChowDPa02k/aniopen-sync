@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Alert,
   App as AntApp,
@@ -15,7 +21,50 @@ import {
 import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 import { stringify } from "yaml";
 import { api, type Obj } from "./api";
-import { Fields } from "./ConfigurationFields";
+import { FieldGroup, Fields } from "./ConfigurationFields";
+
+type FieldSection = { title?: string; keys: string[]; before?: ReactNode };
+const sourceSections: FieldSection[] = [
+  {
+    title: "RSS 订阅",
+    keys: ["enabled", "api_type", "downloader", "rss_link", "rss_link_torrent"],
+  },
+  { title: "保存目录", keys: ["save_path", "classification_on_directory"] },
+  {
+    title: "标题与季集解析",
+    keys: ["blacklist", "custom_season_mapping", "season_episode_adjustment"],
+  },
+  {
+    title: "在线映射",
+    keys: ["online_mappings_enabled", "online_mappings_url"],
+  },
+  {
+    title: "请求与下载地址",
+    keys: [
+      "proxy",
+      "request_timeout",
+      "max_feed_bytes",
+      "max_torrent_bytes",
+      "url_rewrites",
+    ],
+  },
+  {
+    title: "qBittorrent 子分类",
+    keys: ["use_sub_category", "custom_category_mapping"],
+  },
+  { keys: ["download_param"] },
+];
+const maintenanceSections: FieldSection[] = [
+  {
+    title: "历史保留",
+    keys: ["history_retention_days", "history_max_records"],
+  },
+  { title: "提交失败重试", keys: ["retry_base_seconds", "retry_max_seconds"] },
+  {
+    title: "启动与备份",
+    keys: ["sync_on_startup", "automatic_backups", "backup_keep"],
+  },
+];
 
 export function Settings({
   onDirtyChange,
@@ -27,7 +76,9 @@ export function Settings({
     [schema, setSchema] = useState<Obj>();
   const [raw, setRaw] = useState(""),
     [mode, setMode] = useState("form"),
-    [saving, setSaving] = useState(false);
+    [saving, setSaving] = useState(false),
+    [switching, setSwitching] = useState(false),
+    [section, setSection] = useState("source");
   const [errors, setErrors] = useState<Record<string, boolean>>({}),
     [loadError, setLoadError] = useState(""),
     [revision, setRevision] = useState(0);
@@ -82,7 +133,7 @@ export function Settings({
   const rootSchema = schema;
   const fieldSchema = (key: string) =>
     rootSchema.$defs[rootSchema.properties[key].$ref.split("/").pop()!];
-  const render = (key: string) => (
+  const render = (key: string, only?: string[]) => (
     <Fields
       schema={fieldSchema(key)}
       root={schema}
@@ -91,8 +142,60 @@ export function Settings({
       path={key}
       errors={fieldError}
       names={Object.keys(config.downloaders)}
+      only={only}
     />
   );
+  const renderSections = (key: string, sections: FieldSection[]) => {
+    const assigned = new Set(sections.flatMap((group) => group.keys));
+    const remaining = Object.keys(fieldSchema(key).properties).filter(
+      (name) => !assigned.has(name),
+    );
+    const groups = remaining.length
+      ? [...sections, { title: "其他设置", keys: remaining }]
+      : sections;
+    return groups.map((group) => {
+      const fields = (
+        <>
+          {group.before}
+          {render(key, group.keys)}
+        </>
+      );
+      return group.title ? (
+        <FieldGroup key={group.title} title={group.title}>
+          {fields}
+        </FieldGroup>
+      ) : (
+        <Fragment key={group.keys.join(",")}>{fields}</Fragment>
+      );
+    });
+  };
+  const switchMode = async () => {
+    if (switching || saving) return;
+    const next = mode === "form" ? "yaml" : "form";
+    if (next === "yaml" && Object.values(errors).some(Boolean)) {
+      message.error("请先修复 YAML 字段");
+      return;
+    }
+    setSwitching(true);
+    try {
+      if (next === "yaml") {
+        setRaw(stringify(config));
+      } else {
+        const result = await api("/config/validate", {
+          method: "POST",
+          body: JSON.stringify({ yaml: raw }),
+        });
+        setConfig(result.config);
+        setErrors({});
+        setRevision((v) => v + 1);
+      }
+      setMode(next);
+    } catch (err) {
+      message.error((err as Error).message);
+    } finally {
+      setSwitching(false);
+    }
+  };
   const save = async () => {
     setSaving(true);
     try {
@@ -110,12 +213,21 @@ export function Settings({
   };
   return (
     <Space direction="vertical" size={20} style={{ width: "100%" }}>
-      <Card
-        extra={
-          <Space>
+      <Card>
+        <div className="settings-toolbar">
+          <Button
+            aria-label={mode === "form" ? "YAML模式" : "表单模式"}
+            aria-busy={switching}
+            disabled={saving}
+            loading={switching}
+            onClick={switchMode}
+          >
+            {mode === "form" ? "YAML模式" : "表单模式"}
+          </Button>
+          <Space wrap className="settings-actions">
             {dirty && <Tag color="orange">未保存</Tag>}
             <Button
-              disabled={saving}
+              disabled={saving || switching}
               onClick={() =>
                 modal.confirm({
                   title: "重新载入配置？",
@@ -127,6 +239,7 @@ export function Settings({
               重新载入
             </Button>
             <Button
+              disabled={saving || switching}
               onClick={() =>
                 modal.confirm({
                   title: "显示保存的下载器密钥？",
@@ -151,44 +264,16 @@ export function Settings({
               type="primary"
               aria-label="保存并应用"
               loading={saving}
-              disabled={mode === "form" && Object.values(errors).some(Boolean)}
+              disabled={
+                switching ||
+                (mode === "form" && Object.values(errors).some(Boolean))
+              }
               onClick={save}
             >
               保存并应用
             </Button>
           </Space>
-        }
-      >
-        <Tabs
-          activeKey={mode}
-          onChange={async (next) => {
-            if (next === "yaml") {
-              if (Object.values(errors).some(Boolean)) {
-                message.error("请先修复 YAML 字段");
-                return;
-              }
-              setRaw(stringify(config));
-            } else {
-              try {
-                const result = await api("/config/validate", {
-                  method: "POST",
-                  body: JSON.stringify({ yaml: raw }),
-                });
-                setConfig(result.config);
-                setErrors({});
-                setRevision((v) => v + 1);
-              } catch (err) {
-                message.error((err as Error).message);
-                return;
-              }
-            }
-            setMode(next);
-          }}
-          items={[
-            { key: "form", label: "可视化配置" },
-            { key: "yaml", label: "完整 YAML" },
-          ]}
-        />
+        </div>
         {mode === "yaml" ? (
           <Input.TextArea
             className="yaml"
@@ -203,35 +288,51 @@ export function Settings({
         ) : (
           <Form layout="vertical" key={revision}>
             <Tabs
+              activeKey={section}
+              onChange={setSection}
               items={[
                 {
                   key: "source",
                   label: "ANi 订阅与解析",
-                  children: render("source"),
+                  children: renderSections("source", sourceSections),
                 },
                 {
                   key: "schedule",
                   label: "同步计划",
-                  children: (
-                    <>
-                      <Button
-                        style={{ marginBottom: 20 }}
-                        onClick={() =>
-                          update({
-                            ...config,
-                            schedule: {
-                              ...config.schedule,
-                              trigger: "cron",
-                              cron: { minute: "6,36", second: "30" },
-                            },
-                          })
-                        }
-                      >
-                        使用每小时 06:30 / 36:30
-                      </Button>
-                      {render("schedule")}
-                    </>
-                  ),
+                  children: renderSections("schedule", [
+                    {
+                      title: "调度规则",
+                      keys: [
+                        "enabled",
+                        "timezone",
+                        "trigger",
+                        "cron",
+                        "interval",
+                        "run_date",
+                      ],
+                      before: (
+                        <Button
+                          style={{ marginBottom: 20 }}
+                          onClick={() =>
+                            update({
+                              ...config,
+                              schedule: {
+                                ...config.schedule,
+                                trigger: "cron",
+                                cron: { minute: "6,36", second: "30" },
+                              },
+                            })
+                          }
+                        >
+                          使用每小时 06:30 / 36:30
+                        </Button>
+                      ),
+                    },
+                    {
+                      title: "错过执行的处理",
+                      keys: ["misfire_grace_time", "coalesce"],
+                    },
+                  ]),
                 },
                 {
                   key: "downloaders",
@@ -240,16 +341,18 @@ export function Settings({
                     <>
                       {Object.entries(config.downloaders).map(
                         ([key, value]) => (
-                          <Card
+                          <FieldGroup
                             key={key}
                             title={key}
-                            className="nested"
                             extra={
                               <Button
                                 danger
                                 type="text"
+                                aria-label="移除连接"
                                 icon={<DeleteOutlined />}
-                                onClick={() => {
+                                onKeyDown={(event) => event.stopPropagation()}
+                                onClick={(event) => {
+                                  event.stopPropagation();
                                   if (config.source.downloader === key) {
                                     message.error("请先选择其它下载器");
                                     return;
@@ -288,7 +391,7 @@ export function Settings({
                               errors={fieldError}
                               names={Object.keys(config.downloaders)}
                             />
-                          </Card>
+                          </FieldGroup>
                         ),
                       )}
                       <Button
@@ -305,22 +408,28 @@ export function Settings({
                   label: "长期运行",
                   children: (
                     <>
-                      <Card title="aria2 HTTP 自动重试" size="small" className="nested">
+                      <FieldGroup title="aria2 HTTP 自动重试">
                         {render("download_retry")}
-                      </Card>
-                      {render("tracking")}
-                      {render("maintenance")}
-                      <Form.Item label="进度读取间隔（秒）">
-                        <InputNumber
-                          min={5}
-                          max={3600}
-                          value={config.progress_poll_seconds}
-                          onChange={(v) => {
-                            if (v)
-                              update({ ...config, progress_poll_seconds: v });
-                          }}
-                        />
-                      </Form.Item>
+                      </FieldGroup>
+                      <FieldGroup title="任务进度观察">
+                        <Form.Item
+                          label="进度读取间隔（秒）"
+                          htmlFor="progress_poll_seconds"
+                        >
+                          <InputNumber
+                            id="progress_poll_seconds"
+                            min={5}
+                            max={3600}
+                            value={config.progress_poll_seconds}
+                            onChange={(v) => {
+                              if (v)
+                                update({ ...config, progress_poll_seconds: v });
+                            }}
+                          />
+                        </Form.Item>
+                        {render("tracking")}
+                      </FieldGroup>
+                      {renderSections("maintenance", maintenanceSections)}
                     </>
                   ),
                 },
