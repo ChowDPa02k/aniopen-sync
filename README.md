@@ -19,10 +19,6 @@ ANiOpen Sync 定时读取 ANi RSS，把新番剧集提交给 aria2 或 qBittorre
 
 ## 快速开始
 
-需要 Docker Engine（或 Docker Desktop）与 Compose v2。ANiOpen Sync 使用 GHCR 公网镜像，支持 `linux/amd64` 和 `linux/arm64`，Docker 会自动选择主机架构。
-
-创建部署目录，选择下方一种方案，将 YAML 保存为该目录中的 `compose.yaml`：
-
 ```sh
 mkdir -p aniopen-sync
 cd aniopen-sync
@@ -123,7 +119,7 @@ volumes:
   aniopen-data:
 ```
 
-在同一目录创建 `.env`，将 RPC 密钥替换为自己的随机字符串，并把 UID/GID 改为下载目录所有者的值。NAS 使用 `app` 用户时，可通过 `id app` 查询：
+在同一目录创建 `.env`，将 RPC 密钥替换为自己的随机字符串，并把 UID/GID 改为下载目录所有者的值：
 
 ```dotenv
 ARIA2_SECRET=replace-with-your-random-secret
@@ -157,7 +153,7 @@ docker compose exec aniopen-sync aniopen-sync token
 
 方案二的文件会保存到宿主机的 `./downloads/TV/ANi`。启用订阅并保存后，下一次同步会处理当前 RSS 中所有尚未见过的条目，也可点击「立即同步」。订阅默认关闭。
 
-ANiOpen Sync 的配置、历史和访问令牌保存在 `aniopen-data` 数据卷中。`docker compose down` 保留数据卷；需要清空数据时才使用 `docker compose down -v`。
+ANiOpen Sync 的配置、历史和访问令牌保存在 `aniopen-data` 数据卷中。
 
 ## 配置
 
