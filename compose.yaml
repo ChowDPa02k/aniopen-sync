@@ -1,6 +1,6 @@
 services:
   aniopen-sync:
-    build: .
+    image: ${ANIOPEN_IMAGE:-ghcr.io/chowdpa02k/aniopen-sync:latest}
     restart: unless-stopped
     user: "${ANIOPEN_UID:-10001}:${ANIOPEN_GID:-10001}"
     stop_grace_period: 120s

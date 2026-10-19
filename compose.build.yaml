@@ -1,0 +1,5 @@
+services:
+  aniopen-sync:
+    image: aniopen-sync:local
+    build: .
+    pull_policy: build

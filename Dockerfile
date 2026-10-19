@@ -11,6 +11,10 @@ COPY web/ ./
 RUN npm run build
 
 FROM python:3.12-slim@sha256:a6e34c598f2467ed0e9a8d349809fcd8b5c603269512df273a0bb1784edc11b1
+LABEL org.opencontainers.image.source="https://github.com/ChowDPa02k/aniopen-sync" \
+      org.opencontainers.image.title="ANiOpen Sync" \
+      org.opencontainers.image.description="ANi RSS sync with a configuration console and download tracking" \
+      org.opencontainers.image.licenses="Apache-2.0"
 COPY --from=s6 /s6/ /
 COPY --from=ghcr.io/astral-sh/uv:0.10.7@sha256:edd1fd89f3e5b005814cc8f777610445d7b7e3ed05361f9ddfae67bebfe8456a /uv /bin/uv
 WORKDIR /app

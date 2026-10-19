@@ -27,7 +27,7 @@ cd aniopen-sync
 docker compose up -d
 ```
 
-首次启动会构建前后端镜像并生成访问令牌。打开 <http://127.0.0.1:8090>，输入日志中的令牌即可登录。忘记令牌时：
+Compose 默认拉取 `ghcr.io/chowdpa02k/aniopen-sync:latest`，支持 `linux/amd64` 和 `linux/arm64`，Docker 会自动选择主机架构。首次启动会生成访问令牌。打开 <http://127.0.0.1:8090>，输入日志中的令牌即可登录。忘记令牌时：
 
 ```sh
 docker compose exec aniopen-sync aniopen-sync token
@@ -93,6 +93,7 @@ aria2 填完整的 JSON-RPC 地址；qBittorrent 填 WebUI 根地址。`download
 | `ANIOPEN_API_TOKEN` | 自动生成 | 固定访问令牌 |
 | `ANIOPEN_ALLOWED_HOSTS` | 空 | 允许的 Host，逗号分隔；使用自定义域名时必填 |
 | `ANIOPEN_UID` / `ANIOPEN_GID` | `10001` | 容器运行用户 |
+| `ANIOPEN_IMAGE` | `ghcr.io/chowdpa02k/aniopen-sync:latest` | 镜像地址，可指定标签或 digest 固定版本 |
 | `TZ` | `Asia/Shanghai` | 容器时区 |
 
 项目面向可信网络中的单管理员使用。通过公网访问时，建议在反向代理上启用 HTTPS，并妥善保管令牌。
@@ -113,7 +114,8 @@ aria2 填完整的 JSON-RPC 地址；qBittorrent 填 WebUI 根地址。`download
 
   ```sh
   git pull
-  docker compose up -d --build
+  docker compose pull
+  docker compose up -d
   ```
 
   数据库和配置会自动迁移，升级前的状态会保留备份。
@@ -144,6 +146,12 @@ npm test --prefix web
 ```
 
 开发约定和测试说明见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
+需要从本地源码构建容器时：
+
+```sh
+docker compose -f compose.yaml -f compose.build.yaml up -d --build
+```
 
 ## 相关文档
 

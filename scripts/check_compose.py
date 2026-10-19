@@ -28,7 +28,16 @@ def main():
     environment = {**os.environ, "ANIOPEN_PORT": "0", "ANIOPEN_BIND_ADDRESS": "127.0.0.1"}
     environment.pop("ANIOPEN_API_TOKEN", None)
     with tempfile.TemporaryDirectory(prefix="aniopen-compose-") as directory:
-        command = ["docker", "compose", "-p", project, "-f", str(root / "compose.yaml")]
+        command = [
+            "docker",
+            "compose",
+            "-p",
+            project,
+            "-f",
+            str(root / "compose.yaml"),
+            "-f",
+            str(root / "compose.build.yaml"),
+        ]
         if args.build_proxy:
             override = Path(directory) / "build-proxy.yaml"
             override.write_text(
