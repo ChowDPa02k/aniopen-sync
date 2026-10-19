@@ -402,7 +402,9 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
             ref={tableViewport}
             className="tasks-table-viewport"
             style={
-              { "--task-table-body-height": `${tableHeight}px` } as CSSProperties
+              tableHeight === undefined
+                ? undefined
+                : ({ "--task-table-body-height": `${tableHeight}px` } as CSSProperties)
             }
           >
             <ProTable<Obj>

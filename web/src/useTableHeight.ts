@@ -1,18 +1,26 @@
 import { useLayoutEffect, useState, type RefObject } from "react";
 
-/** Fit the native table body after ProTable's filters, toolbar, header and pagination. */
+/** Fit desktop rows to the viewport; narrow/short layouts scroll the full page. */
 export function useTableHeight(
   ref: RefObject<HTMLDivElement | null>,
   active: boolean,
 ) {
-  const [height, setHeight] = useState(200);
+  const [height, setHeight] = useState<number | undefined>(200);
   useLayoutEffect(() => {
     const container = ref.current;
     if (!active || !container) return;
     let frame = 0;
     const measure = () => {
+      if (
+        getComputedStyle(container)
+          .getPropertyValue("--task-table-page-scroll")
+          .trim() === "1"
+      ) {
+        setHeight(undefined);
+        return;
+      }
       const content = container.firstElementChild;
-      const body = container.querySelector(".ant-table-body");
+      const body = container.querySelector(".ant-table-body, .ant-table-content");
       if (!content || !body) return;
       const chrome =
         content.getBoundingClientRect().height -
