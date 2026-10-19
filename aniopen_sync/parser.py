@@ -7,6 +7,7 @@ import logging
 import posixpath
 import re
 from dataclasses import dataclass, field
+from decimal import Decimal
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
@@ -65,6 +66,20 @@ class Release:
     sub_category: str = ""
     original_url: str = ""
     torrent_hashes: dict[str, str] = field(default_factory=dict)
+    rss_size_bytes: int = 0
+
+
+def parse_rss_size(value: str | None) -> int:
+    """ANi uses binary units even when its rounded RSS sizes are labelled MB/GB."""
+    if not value or len(value) > 64:
+        return 0
+    match = re.fullmatch(r"\s*(\d+(?:\.\d+)?)\s*(B|[KMGT]I?B)\s*", value, re.IGNORECASE)
+    if not match:
+        return 0
+    unit = match[2].upper()
+    exponent = 0 if unit == "B" else "KMGT".index(unit[0]) + 1
+    size = Decimal(match[1]) * 1024**exponent
+    return int(size) if 0 < size <= 2**63 - 1 else 0
 
 
 def safe_component(value: str) -> str:
@@ -148,6 +163,9 @@ class AniParser:
                     episode=episode,
                     path=folder,
                     sub_category=safe_path(sub),
+                    rss_size_bytes=parse_rss_size(item.findtext("{*}size"))
+                    if self.cfg.api_type == "http"
+                    else 0,
                 )
             )
         return releases

@@ -171,6 +171,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
           <div>{statusLabels[r.status] || r.status}</div>
           <Progress
             percent={Math.round(r.progress * 10) / 10}
+            format={r.progress_estimated ? (percent) => `≈${percent}%` : undefined}
             size="small"
             status={
               r.status === "error"
@@ -181,7 +182,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
             }
           />
           <Typography.Text type="secondary">
-            {bytes(r.downloaded)} / {bytes(r.total)} · {bytes(r.speed)}/s
+            {bytes(r.downloaded)} / {r.progress_estimated ? `约 ${bytes(r.rss_size_bytes)}` : bytes(r.total)} · {bytes(r.speed)}/s
           </Typography.Text>
         </div>
       ),

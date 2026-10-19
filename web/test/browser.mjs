@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
 import { checkSyncLayout } from "./layout.mjs";
 import { checkMobileSyncScroll } from "./mobile-layout.mjs";
+import { checkRssProgressDisplay } from "./rss-progress.mjs";
 import { parse } from "yaml";
 
 const url = process.env.ANIOPEN_TEST_URL;
@@ -32,6 +33,7 @@ try {
   await page.getByRole("button", { name: "进入控制台", exact: true }).click();
   await checkSyncLayout(page);
   await checkMobileSyncScroll(browser, url, token);
+  await checkRssProgressDisplay(page);
   await page.getByRole("link", { name: "配置中心" }).click();
   await page.getByRole("tab", { name: "长期运行", exact: true }).click();
   const retryCard = page.locator(".ant-card").filter({ has: page.getByText("aria2 HTTP 自动重试", { exact: true }) }).last();
@@ -119,6 +121,7 @@ try {
     JSON.stringify({
       browser_login: "passed",
       mobile_touch_scroll: "passed",
+      rss_progress_display: "passed",
       retry_switch_and_yaml: "passed",
       schema_forms: "passed",
       timezone_preset: "passed",

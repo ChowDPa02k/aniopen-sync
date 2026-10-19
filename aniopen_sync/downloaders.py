@@ -187,7 +187,7 @@ class Aria2:
         snapshot = {
             "current_engine_id": result["gid"],
             "status": {"complete": "completed", "active": "downloading"}.get(state, state),
-            "progress": min(100, downloaded * 100 / total) if total else (100 if state == "complete" else 0),
+            "progress": 100 if state == "complete" else (min(100, downloaded * 100 / total) if total else 0),
             "total": total,
             "downloaded": downloaded,
             "speed": int(result.get("downloadSpeed", 0)),

@@ -10,7 +10,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from .config import Maintenance, Tracking
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 SCHEMA = """
 PRAGMA journal_mode=WAL;
 CREATE TABLE IF NOT EXISTS runs (
@@ -82,6 +82,8 @@ class Database:
                 "auto_retry_state": "TEXT",
                 "auto_retry_due_at": "TEXT",
                 "auto_retry_error": "TEXT",
+                "rss_size_bytes": "INTEGER NOT NULL DEFAULT 0",
+                "progress_estimated": "INTEGER NOT NULL DEFAULT 0",
             }
             for name, kind in additions.items():
                 if name not in columns:
@@ -174,6 +176,7 @@ class Database:
             result = []
             for row in rows:
                 item = dict(row)
+                item["progress_estimated"] = bool(item["progress_estimated"])
                 for key in ("original_url", "source_url"):
                     raw = item.get(key) or ""
                     parsed = urlsplit(raw)
@@ -311,6 +314,15 @@ class Database:
                 "SELECT identity FROM tasks WHERE original_url=? ORDER BY id LIMIT 1", (original_url,)
             ).fetchone()
             return row[0] if row else fallback
+
+    def backfill_rss_sizes(self, sizes):
+        """Enrich existing HTTP tasks without reserving or resubmitting them."""
+        with self.connect() as db:
+            db.executemany(
+                "UPDATE tasks SET rss_size_bytes=? WHERE original_url=? "
+                "AND link_type='http' AND rss_size_bytes=0",
+                [(size, url) for url, size in sizes.items() if size > 0],
+            )
 
     def reserve_task(self, values):
         with self.connect() as db:

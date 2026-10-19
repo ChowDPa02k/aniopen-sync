@@ -229,6 +229,7 @@ class Service:
                     row["season"],
                     row["episode"],
                     path,
+                    rss_size_bytes=row["rss_size_bytes"],
                 )
             )
             identities[row["source_url"]] = row["identity"]
@@ -256,6 +257,8 @@ class Service:
             if self.stopping.is_set():
                 raise InterruptedError()
             releases = AniParser(source, self._mappings(source, session)).parse(xml)
+            if source.api_type == "http":
+                self.db.backfill_rss_sizes({r.original_url: r.rss_size_bytes for r in releases})
             recoveries, recovery_identities = self._recovery_releases(cfg)
             releases = recoveries + [r for r in releases if r.url not in recovery_identities]
             downloader = cfg.downloaders[source.downloader]
@@ -294,6 +297,7 @@ class Service:
                         "target_path": posixpath.join(directory, release.file_name),
                         "known_uris": json.dumps([release.url]),
                         "recovery_requested": 0,
+                        **({"rss_size_bytes": release.rss_size_bytes} if release.rss_size_bytes else {}),
                     }
                 )
                 if task_id is None:
@@ -576,6 +580,13 @@ class Service:
         if current is None:
             raise MissingTask("GID 已不可见，暂未发现可唯一关联的外部重建任务")
         values = engine.observe(current_id, snapshots | {current_id: current})
+        values["progress_estimated"] = False
+        if row["link_type"] == "http" and values["total"] == 0:
+            if values["status"] == "completed":
+                values["total"] = values["downloaded"]
+            elif row["rss_size_bytes"] > 0:
+                values["progress"] = min(99.9, values["downloaded"] * 100 / row["rss_size_bytes"])
+                values["progress_estimated"] = True
         result = engine.last_result
         known |= engine.uris(result)
         target = row["target_path"]
