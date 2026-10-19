@@ -101,6 +101,9 @@ body {
 .release-meta .ant-tag {
   margin-left: 6px;
 }
+.download-meta {
+  font-size: 12px;
+}
 .settings-toolbar {
   display: flex;
   align-items: center;
@@ -170,6 +173,69 @@ body {
   }
   .ant-pro-page-container-children-container {
     padding: 14px !important;
+  }
+}
+/* Use the CSS viewport: display scaling and browser zoom reduce usable height. */
+@media (min-width: 768px) and (min-height: 501px) and (max-height: 900px) {
+  .sync-page .ant-page-header {
+    padding: 8px 16px;
+  }
+  .sync-page .ant-page-header .ant-page-header-heading {
+    padding-top: 0;
+  }
+  .sync-page .ant-pro-page-container-children-container {
+    padding: 8px 16px 12px !important;
+  }
+  .sync-page .stats {
+    margin-bottom: 8px;
+  }
+  .sync-page .stats .ant-card-body {
+    padding: 10px 12px;
+  }
+  .sync-page .stats .ant-statistic {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .sync-page .stats .ant-statistic-title {
+    margin-bottom: 0;
+    font-size: 12px;
+  }
+  .sync-page .stats .ant-statistic-content {
+    font-size: 22px;
+    line-height: 1.2;
+  }
+  .sync-page .ant-pro-table-search {
+    margin-bottom: 8px;
+  }
+  .sync-page .ant-pro-table-search .ant-pro-query-filter {
+    padding: 12px 16px 0;
+  }
+  .sync-page .ant-pro-table-search .ant-form-item {
+    margin-bottom: 12px;
+  }
+  .sync-page .ant-pro-table > .ant-pro-card > .ant-pro-card-body {
+    padding: 0 16px 12px;
+  }
+  .sync-page .ant-pro-table-list-toolbar-container {
+    padding-block: 8px;
+  }
+  .sync-page .ant-table.ant-table-middle .ant-table-thead > tr > th {
+    padding-block: 8px;
+  }
+  .sync-page
+    .ant-table.ant-table-middle
+    .ant-table-tbody
+    > .ant-table-row
+    > td {
+    padding-block: 10px;
+  }
+  .sync-page .release-meta {
+    margin-top: 4px;
+  }
+  .sync-page .ant-table-pagination.ant-pagination {
+    margin-block: 10px 0;
   }
 }
 @media (max-width: 767px), (max-height: 500px) {

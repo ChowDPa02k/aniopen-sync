@@ -97,7 +97,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     {
       title: "触发时间",
       dataIndex: "triggered_at",
-      width: 178,
+      width: 162,
       hideInSearch: true,
       render: (_, r) => (
         <>
@@ -126,7 +126,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     {
       title: "提交结果",
       dataIndex: "submission",
-      width: 130,
+      width: 104,
       hideInSearch: true,
       render: (_, r) => (
         <Space direction="vertical" size={4}>
@@ -148,7 +148,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     {
       title: "下载状态",
       dataIndex: "status",
-      width: 230,
+      width: 210,
       valueType: "select",
       valueEnum: Object.fromEntries(
         Object.entries(statusLabels)
@@ -181,8 +181,12 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
                   : "normal"
             }
           />
-          <Typography.Text type="secondary">
-            {bytes(r.downloaded)} / {r.progress_estimated ? `约 ${bytes(r.rss_size_bytes)}` : bytes(r.total)} · {bytes(r.speed)}/s
+          <Typography.Text type="secondary" className="download-meta">
+            {bytes(r.downloaded)} /{" "}
+            {r.progress_estimated
+              ? `约 ${bytes(r.rss_size_bytes)}`
+              : bytes(r.total)}{" "}
+            · {bytes(r.speed)}/s
           </Typography.Text>
         </div>
       ),
@@ -190,7 +194,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     {
       title: "最近读取 / 说明",
       dataIndex: "observed_at",
-      width: 220,
+      width: 180,
       hideInSearch: true,
       render: (_, r) => (
         <Space direction="vertical" size={4}>
