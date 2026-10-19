@@ -2,6 +2,8 @@
 
 ## 日常使用
 
+先选择 [README 中的 Compose 示例](../README.md#快速开始)，将其保存为部署目录中的 `compose.yaml`。日常操作都在该目录执行。
+
 ```sh
 docker compose up -d
 docker compose logs -f aniopen-sync
@@ -9,7 +11,7 @@ docker compose logs -f aniopen-sync
 
 首次启动会拉取 GHCR 镜像并生成访问令牌。配置、历史和令牌保存在 `aniopen-data` 数据卷中，停止或重建容器不会影响这些数据；除非需要清空数据，否则不要执行 `docker compose down -v`。
 
-端口、监听地址、访问令牌、Host 白名单和运行用户通过 `.env` 或环境变量设置，修改后需重启容器。WebUI 中的业务配置保存后立即生效，无需重启。环境变量列表见 [README](../README.md#访问与安全)。
+端口、监听地址、访问令牌、Host 白名单和运行用户通过 `.env` 或环境变量设置，修改后执行 `docker compose up -d --no-deps aniopen-sync` 重建服务。WebUI 中的业务配置保存后立即生效，无需重启。环境变量列表见 [README](../README.md#访问与安全)。
 
 容器时区（`TZ`）与调度时区（`schedule.timezone`）相互独立，同步计划以配置中的时区为准。
 
@@ -18,14 +20,6 @@ docker compose logs -f aniopen-sync
 镜像地址为 `ghcr.io/chowdpa02k/aniopen-sync`，每个发布标签同时包含 `linux/amd64` 和 `linux/arm64`。Docker 拉取时会自动选择主机架构。
 
 `latest` 跟随通过 CI 和两种架构容器检查的 main 提交更新。每次构建还保留 `sha-<完整提交 SHA>` 标签；推送 `v` 开头的版本标签时，发布对应的版本号和主次版本号标签，例如 `v0.4.0` 对应 `0.4.0`、`0.4`。可通过 `.env` 中的 `ANIOPEN_IMAGE` 指定标签或 digest 固定版本。
-
-从源码构建时使用：
-
-```sh
-docker compose -f compose.yaml -f compose.build.yaml up -d --build
-```
-
-源码构建需要访问 npm、PyPI 和 GitHub Releases，受限网络可以配置 Docker 构建代理。之后使用同一组 Compose 文件管理服务。
 
 ## 健康检查
 
@@ -53,24 +47,23 @@ docker compose exec aniopen-sync python -m aniopen_sync.healthcheck
 ANIOPEN_UID=1001 ANIOPEN_GID=1001 docker compose up -d
 ```
 
-默认的 `compose.yaml` 已处理好 `/run` 等运行时目录的权限和只读根文件系统。
+README 中的 Compose 示例已处理好 `/run` 等运行时目录的权限和只读根文件系统。
 
 ## 升级
 
 1. 按下方「备份」一节创建手动备份，并复制到容器外。
-2. 更新 Compose 文件、拉取镜像并重建容器：
+2. 在部署目录拉取 GHCR 镜像并重建 ANiOpen Sync 容器：
 
    ```sh
-   git pull
-   docker compose pull
-   docker compose up -d
+   docker compose pull aniopen-sync
+   docker compose up -d --no-deps aniopen-sync
    ```
 
 3. 检查 `docker compose ps`、容器日志和 WebUI 的同步记录。
 
 数据库和配置会在升级时自动迁移，迁移前保留备份。如果数据来自更新版本的程序，服务会拒绝启动，避免旧版本写坏数据。从 0.4.0 回退到旧版本时，请同时恢复升级前的数据库备份。
 
-镜像拉取和容器升级由管理员主动执行。
+镜像拉取和容器升级由管理员主动执行。上述命令只更新 ANiOpen Sync，联合部署中的 aria2 保持运行；需要调整 Compose 设置时，直接编辑部署目录中的 `compose.yaml`。
 
 ## 备份
 
@@ -103,11 +96,11 @@ services:
 然后执行：
 
 ```sh
-docker compose stop
+docker compose stop aniopen-sync
 mkdir -m 700 restored-data
 tar -xzf aniopen-backup.tar.gz -C restored-data
 sudo chown -R 10001:10001 restored-data
-docker compose -f compose.yaml -f compose.restore.yaml up -d
+docker compose -f compose.yaml -f compose.restore.yaml up -d --no-deps aniopen-sync
 ```
 
 之后使用同一组 Compose 文件管理服务。原数据卷会保留，确认恢复成功后再自行清理。使用自定义 `ANIOPEN_UID` / `ANIOPEN_GID` 时，`chown` 也改为对应值；通过环境变量固定令牌时，需要设置相同的值。

@@ -4,7 +4,7 @@
 
 ANiOpen Sync 定时读取 ANi RSS，把新番剧集提交给 aria2 或 qBittorrent，并在网页中提供配置、手动同步和下载进度。解析器移植自 [Kubespider](https://github.com/opennaslab/kubespider)，保留其季集识别规则。
 
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/13249991-dd21-47bf-92f2-0fdd5493b23f" />
+![ANiOpen Sync 同步页面](docs/images/sync-dashboard.png)
 
 ## 功能
 
@@ -19,23 +19,145 @@ ANiOpen Sync 定时读取 ANi RSS，把新番剧集提交给 aria2 或 qBittorre
 
 ## 快速开始
 
-需要 Docker Engine（或 Docker Desktop）与 Compose v2。
+需要 Docker Engine（或 Docker Desktop）与 Compose v2。ANiOpen Sync 使用 GHCR 公网镜像，支持 `linux/amd64` 和 `linux/arm64`，Docker 会自动选择主机架构。
+
+创建部署目录，选择下方一种方案，将 YAML 保存为该目录中的 `compose.yaml`：
 
 ```sh
-git clone https://github.com/ChowDPa02k/aniopen-sync.git
+mkdir -p aniopen-sync
 cd aniopen-sync
-docker compose up -d
 ```
 
-Compose 默认拉取 `ghcr.io/chowdpa02k/aniopen-sync:latest`，支持 `linux/amd64` 和 `linux/arm64`，Docker 会自动选择主机架构。首次启动会生成访问令牌。打开 <http://127.0.0.1:8090>，输入日志中的令牌即可登录。忘记令牌时：
+### 方案一：单独部署
+
+适合连接已有的 aria2 或 qBittorrent。
+
+```yaml
+services:
+  aniopen-sync:
+    image: ${ANIOPEN_IMAGE:-ghcr.io/chowdpa02k/aniopen-sync:latest}
+    restart: unless-stopped
+    user: "${ANIOPEN_UID:-10001}:${ANIOPEN_GID:-10001}"
+    stop_grace_period: 120s
+    ports:
+      - "${ANIOPEN_BIND_ADDRESS:-0.0.0.0}:${ANIOPEN_PORT:-8090}:8090"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      ANIOPEN_API_TOKEN: ${ANIOPEN_API_TOKEN:-}
+      ANIOPEN_ALLOWED_HOSTS: ${ANIOPEN_ALLOWED_HOSTS:-}
+    volumes:
+      - aniopen-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=32m
+      - /run:rw,exec,nosuid,nodev,size=16m,mode=0700,uid=${ANIOPEN_UID:-10001},gid=${ANIOPEN_GID:-10001}
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  aniopen-data:
+```
+
+### 方案二：与 aria2 一起部署
+
+此方案同时启动 [SuperNG6 的 aria2 镜像](https://github.com/SuperNG6/docker-aria2) 和 ANiOpen Sync，两个服务通过 Compose 默认网络通信。aria2 的 RPC 仅在容器网络内使用，宿主机只开放 WebUI 的 8090 端口及 BT/DHT 的 32516 端口。
+
+```yaml
+services:
+  aniopen-sync:
+    image: ${ANIOPEN_IMAGE:-ghcr.io/chowdpa02k/aniopen-sync:latest}
+    restart: unless-stopped
+    user: "${ANIOPEN_UID:-10001}:${ANIOPEN_GID:-10001}"
+    stop_grace_period: 120s
+    ports:
+      - "${ANIOPEN_BIND_ADDRESS:-0.0.0.0}:${ANIOPEN_PORT:-8090}:8090"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      ANIOPEN_API_TOKEN: ${ANIOPEN_API_TOKEN:-}
+      ANIOPEN_ALLOWED_HOSTS: ${ANIOPEN_ALLOWED_HOSTS:-}
+    volumes:
+      - aniopen-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,noexec,size=32m
+      - /run:rw,exec,nosuid,nodev,size=16m,mode=0700,uid=${ANIOPEN_UID:-10001},gid=${ANIOPEN_GID:-10001}
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+  aria2:
+    image: superng6/aria2:latest
+    restart: unless-stopped
+    environment:
+      PUID: ${ARIA2_UID:-1000}
+      PGID: ${ARIA2_GID:-1000}
+      TZ: ${TZ:-Asia/Shanghai}
+      SECRET: ${ARIA2_SECRET:?Set ARIA2_SECRET in .env}
+      PORT: "6800"
+      BTPORT: "32516"
+      WEBUI: "false"
+      UT: "false"
+      RUT: "true"
+      SMD: "true"
+      FA: falloc
+      QUIET: "true"
+    ports:
+      - "32516:32516"
+      - "32516:32516/udp"
+    volumes:
+      - ./aria2-config:/config
+      - ./downloads:/downloads
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  aniopen-data:
+```
+
+在同一目录创建 `.env`，将 RPC 密钥替换为自己的随机字符串，并把 UID/GID 改为下载目录所有者的值。NAS 使用 `app` 用户时，可通过 `id app` 查询：
+
+```dotenv
+ARIA2_SECRET=replace-with-your-random-secret
+ARIA2_UID=1000
+ARIA2_GID=1000
+```
+
+aria2 的配置保存到 `./aria2-config`，下载文件保存到 `./downloads`。可将 `./downloads` 替换为 NAS 的媒体目录，容器内路径仍保留 `/downloads`。镜像的其它选项见 [SuperNG6 的使用说明](https://github.com/SuperNG6/docker-aria2#环境变量说明)。
+
+### 启动与登录
+
+在保存 `compose.yaml` 的目录执行：
 
 ```sh
+docker compose pull
+docker compose up -d --wait
 docker compose exec aniopen-sync aniopen-sync token
 ```
 
-登录后进入「配置中心」，填写下载器地址和凭据，确认时区与调度规则，启用订阅并保存。订阅默认关闭；启用后，下一次同步会处理当前 RSS 中所有尚未见过的条目。
+打开 `http://服务器地址:8090`，本机部署可访问 <http://127.0.0.1:8090>，使用上述命令输出的访问令牌登录。
 
-数据保存在 `aniopen-data` 数据卷中。`docker compose down` 停止并删除容器，数据仍然保留。
+进入「配置中心」，填写下载器地址和凭据，确认保存路径、时区与调度规则。方案二使用以下配置：
+
+| 配置项 | 值 |
+| --- | --- |
+| 订阅的下载器 | `aria2` |
+| aria2 连接地址 | `http://aria2:6800/jsonrpc` |
+| aria2 RPC 密钥 | `.env` 中的 `ARIA2_SECRET` |
+| 下载根目录 | `/downloads` |
+| 订阅保存路径 | `TV/ANi`，可按需修改 |
+
+方案二的文件会保存到宿主机的 `./downloads/TV/ANi`。启用订阅并保存后，下一次同步会处理当前 RSS 中所有尚未见过的条目，也可点击「立即同步」。订阅默认关闭。
+
+ANiOpen Sync 的配置、历史和访问令牌保存在 `aniopen-data` 数据卷中。`docker compose down` 保留数据卷；需要清空数据时才使用 `docker compose down -v`。
 
 ## 配置
 
@@ -71,11 +193,16 @@ extra_hosts:
   - "host.docker.internal:host-gateway"
 ```
 
-如果下载器已在某个 Docker 网络中运行，可以直接加入该网络：
+如果下载器已在某个 Docker 网络中运行，在现有 `compose.yaml` 中合并以下网络设置，将 `app-net` 替换为已有网络名：
 
-```sh
-ANIOPEN_DOWNLOADER_NETWORK=your-network \
-  docker compose -f compose.yaml -f compose.network.yaml up -d
+```yaml
+services:
+  aniopen-sync:
+    networks:
+      - app-net
+networks:
+  app-net:
+    external: true
 ```
 
 aria2 填完整的 JSON-RPC 地址；qBittorrent 填 WebUI 根地址。`download_base_path` 是下载器看到的路径，媒体文件由下载器直接写入对应目录。
@@ -113,12 +240,11 @@ aria2 填完整的 JSON-RPC 地址；qBittorrent 填 WebUI 根地址。`download
 - **升级**：
 
   ```sh
-  git pull
-  docker compose pull
-  docker compose up -d
+  docker compose pull aniopen-sync
+  docker compose up -d --no-deps aniopen-sync
   ```
 
-  数据库和配置会自动迁移，升级前的状态会保留备份。
+  升级前先备份。上述命令只更新 ANiOpen Sync，联合部署中的 aria2 保持运行。数据库和配置会自动迁移。
 
 - **日志**：Compose 默认轮转日志（单文件 10 MB，保留 3 份），可用 `docker compose logs -f aniopen-sync` 查看。
 
