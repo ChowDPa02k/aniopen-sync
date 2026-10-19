@@ -50,6 +50,19 @@ export async function checkMobileSyncScroll(browser, url, token) {
     const body = page.locator(".tasks-table-viewport .ant-table-content").first();
     const pager = page.locator(".tasks-table-viewport .ant-pagination");
     const cdp = await context.newCDPSession(page);
+    // Dispatch actual touch points: synthesized scroll gestures vary across host platforms.
+    async function swipe(x, y, dx, dy) {
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+      for (let step = 1; step <= 24; step++) {
+        const progress = 1 - (1 - step / 24) ** 2;
+        await cdp.send("Input.dispatchTouchEvent", {
+          type: "touchMove",
+          touchPoints: [{ x: x + dx * progress, y: y + dy * progress }],
+        });
+        await new Promise((resolve) => setTimeout(resolve, 16));
+      }
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    }
     for (const viewport of [
       { width: 360, height: 640 },
       { width: 393, height: 700 },
@@ -63,14 +76,8 @@ export async function checkMobileSyncScroll(browser, url, token) {
         document.scrollingElement.scrollHeight > innerHeight &&
         document.scrollingElement.scrollWidth <= innerWidth + 1,
       )).toBe(true);
-      for (let swipe = 0; swipe < 4; swipe++) {
-        await cdp.send("Input.synthesizeScrollGesture", {
-          x: viewport.width / 2,
-          y: viewport.height - 100,
-          yDistance: -1500,
-          gestureSourceType: "touch",
-          speed: 2000,
-        });
+      for (let attempt = 0; attempt < 16; attempt++) {
+        await swipe(viewport.width / 2, viewport.height - 100, 0, 200 - viewport.height);
         if (await pager.evaluate((node) => node.getBoundingClientRect().bottom <= innerHeight)) break;
       }
       await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
@@ -80,18 +87,17 @@ export async function checkMobileSyncScroll(browser, url, token) {
       await body.evaluate((node) => { node.scrollLeft = 0; });
       const box = await body.boundingBox();
       const point = {
-        x: Math.min(box.x + 120, viewport.width - 40),
+        x: Math.min(box.x + box.width - 24, viewport.width - 24),
         y: Math.min(Math.max(box.y + 180, 100), viewport.height - 100),
-        gestureSourceType: "touch",
       };
-      await cdp.send("Input.synthesizeScrollGesture", { ...point, xDistance: -350 });
+      await swipe(point.x, point.y, -Math.min(300, point.x - 20), 0);
       await expect.poll(() => body.evaluate((node) => node.scrollLeft)).toBeGreaterThan(0);
       // Vertical swipes over the rows must scroll the page in both directions.
       const before = await page.evaluate(() => window.scrollY);
-      await cdp.send("Input.synthesizeScrollGesture", { ...point, yDistance: 350 });
+      await swipe(point.x, point.y, 0, Math.min(250, viewport.height - point.y - 20));
       await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(before);
       const up = await page.evaluate(() => window.scrollY);
-      await cdp.send("Input.synthesizeScrollGesture", { ...point, yDistance: -350 });
+      await swipe(point.x, point.y, 0, -Math.min(250, point.y - 80));
       await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(up);
     }
     assert.deepEqual(errors, []);
