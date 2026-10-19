@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { expect } from "@playwright/test";
+import { checkTaskFilters } from "./task-filters.mjs";
 
 /** Mock only browser responses; never inserts tasks into the application database. */
 export async function checkSyncLayout(page) {
@@ -43,11 +44,17 @@ export async function checkSyncLayout(page) {
     const params = new URL(route.request().url()).searchParams;
     const size = Number(params.get("page_size") || 20);
     const offset = (Number(params.get("page") || 1) - 1) * size;
+    const filtered = tasks.filter(
+      (task) =>
+        (!params.get("search") ||
+          task.file_name.includes(params.get("search"))) &&
+        (!params.get("status") || task.status === params.get("status")),
+    );
     await route.fulfill({
       json: {
         success: true,
-        data: tasks.slice(offset, offset + size),
-        total: tasks.length,
+        data: filtered.slice(offset, offset + size),
+        total: filtered.length,
       },
     });
   });
@@ -217,6 +224,7 @@ export async function checkSyncLayout(page) {
     await page.getByText("最近同步", { exact: true }).waitFor();
     await page.getByRole("link", { name: /同步$/ }).click();
     await page.getByText(tasks[0].file_name, { exact: true }).waitFor();
+    await checkTaskFilters(page, tasks[0].file_name);
   } finally {
     await page.unroute(pattern);
   }

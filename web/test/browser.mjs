@@ -159,6 +159,7 @@ try {
       masked_yaml: "passed",
       dirty_guards: "passed",
       sync_navigation_and_table_scroll: "passed",
+      task_filters: "passed",
       reauthentication_preserves_edits: "passed",
     }),
   );

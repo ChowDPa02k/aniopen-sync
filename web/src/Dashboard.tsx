@@ -21,16 +21,21 @@ import {
   Card,
   Col,
   Empty,
+  Form,
+  Input,
   Progress,
   Row,
+  Select,
   Space,
   Statistic,
   Table,
   Tag,
+  Tooltip,
   Typography,
 } from "antd";
 import {
   DownloadOutlined,
+  FilterOutlined,
   HistoryOutlined,
   LogoutOutlined,
   SettingOutlined,
@@ -44,6 +49,17 @@ const Settings = lazy(() =>
 );
 import { statusLabels, submissionLabels, fmt, bytes } from "./utils";
 
+const taskStatusOptions = [
+  "pending",
+  "downloading",
+  "waiting",
+  "paused",
+  "completed",
+  "error",
+  "removed",
+  "tracking_lost",
+].map((value) => ({ value, label: statusLabels[value] }));
+
 export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const { message, modal } = AntApp.useApp();
   const [page, setPage] = useState("tasks"),
@@ -51,6 +67,9 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     [error, setError] = useState("");
   const [triggering, setTriggering] = useState(false);
   const [settingsDirty, setSettingsDirty] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [taskFilters, setTaskFilters] = useState({ search: "", status: "" });
+  const [filterForm] = Form.useForm<{ search?: string; status?: string }>();
   const navigate = (next: string) => {
     if (page === next) return;
     if (page === "settings" && settingsDirty) {
@@ -65,6 +84,18 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     } else setPage(next);
   };
   const actionRef = useRef<ActionType>(undefined);
+  const applyTaskFilters = (values: { search?: string; status?: string }) => {
+    const next = {
+      search: values.search?.trim() || "",
+      status: values.status || "",
+    };
+    if (
+      next.search === taskFilters.search &&
+      next.status === taskFilters.status
+    ) {
+      actionRef.current?.reload(true);
+    } else setTaskFilters(next);
+  };
   const tableViewport = useRef<HTMLDivElement>(null);
   const tableHeight = useTableHeight(tableViewport, page === "tasks");
   const refresh = useCallback(async () => {
@@ -149,23 +180,6 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
       title: "下载状态",
       dataIndex: "status",
       width: 210,
-      valueType: "select",
-      valueEnum: Object.fromEntries(
-        Object.entries(statusLabels)
-          .filter(([k]) =>
-            [
-              "pending",
-              "downloading",
-              "waiting",
-              "paused",
-              "completed",
-              "error",
-              "removed",
-              "tracking_lost",
-            ].includes(k),
-          )
-          .map(([k, text]) => [k, { text }]),
-      ),
       render: (_, r) => (
         <div>
           <div>{statusLabels[r.status] || r.status}</div>
@@ -417,11 +431,75 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
               rowKey="id"
               columns={columns}
               polling={5000}
-              search={{ labelWidth: "auto", defaultCollapsed: false }}
+              search={false}
+              params={taskFilters}
               pagination={{ defaultPageSize: 20, showSizeChanger: true }}
               scroll={{ x: 1100, y: tableHeight }}
               headerTitle="RSS 下载任务"
               options={{ density: true, reload: true, setting: true }}
+              optionsRender={(_, options) => [
+                options[0],
+                <Tooltip key="filter" title="筛选">
+                  <Button
+                    aria-label="筛选"
+                    aria-expanded={filtersOpen}
+                    aria-controls="task-filters"
+                    type={
+                      filtersOpen || taskFilters.search || taskFilters.status
+                        ? "primary"
+                        : "text"
+                    }
+                    icon={<FilterOutlined />}
+                    onClick={() => setFiltersOpen((open) => !open)}
+                  />
+                </Tooltip>,
+                ...options.slice(1),
+              ]}
+              toolbar={{
+                multipleLine: filtersOpen,
+                filter: filtersOpen ? (
+                  <Form
+                    id="task-filters"
+                    className="task-filters"
+                    aria-label="任务筛选"
+                    layout="inline"
+                    form={filterForm}
+                    onFinish={applyTaskFilters}
+                  >
+                    <Form.Item
+                      label="文件 / 剧名"
+                      name="search"
+                      className="task-filter-name"
+                    >
+                      <Input allowClear placeholder="请输入" />
+                    </Form.Item>
+                    <Form.Item
+                      label="下载状态"
+                      name="status"
+                      className="task-filter-status"
+                    >
+                      <Select
+                        allowClear
+                        placeholder="请选择"
+                        options={taskStatusOptions}
+                      />
+                    </Form.Item>
+                    <Space className="task-filter-actions">
+                      <Button type="primary" htmlType="submit">
+                        搜索
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          filterForm.resetFields();
+                          applyTaskFilters({});
+                        }}
+                      >
+                        重置
+                      </Button>
+                    </Space>
+                  </Form>
+                ) : undefined,
+              }}
               request={async (params) => {
                 try {
                   return await api(
