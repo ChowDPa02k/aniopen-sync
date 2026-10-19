@@ -50,7 +50,9 @@ export async function checkSyncLayout(page) {
     await page.getByText("最近同步", { exact: true }).waitFor();
     assert.equal(await page.locator(".tasks-table-viewport").count(), 0);
     await page.getByRole("link", { name: /同步$/ }).click();
-    const body = page.locator(".tasks-table-viewport .ant-table-body");
+    const body = page.locator(
+      ".tasks-table-viewport .ant-table-body, .tasks-table-viewport .ant-table-content",
+    ).first();
     await page.getByText(tasks[0].file_name, { exact: true }).waitFor();
     assert.equal(await page.getByText("最近同步", { exact: true }).count(), 0);
     for (const title of ["已创建记录", "进行中 / 待确认", "下载完成", "发送或下载失败"]) {
@@ -60,6 +62,7 @@ export async function checkSyncLayout(page) {
       { width: 1500, height: 1100 },
       { width: 1280, height: 720 },
       { width: 900, height: 600 },
+      { width: 1440, height: 480 },
       { width: 390, height: 844 },
       { width: 1500, height: 1100 },
     ]) {
@@ -68,9 +71,17 @@ export async function checkSyncLayout(page) {
         .poll(() =>
           page.evaluate(() => {
             const table = document.querySelector(".tasks-table-viewport");
-            const body = table.querySelector(".ant-table-body");
+            const body = table.querySelector(".ant-table-body, .ant-table-content");
             const pager = table.querySelector(".ant-pagination");
             const stats = document.querySelector(".stats");
+            if (innerWidth <= 767 || innerHeight <= 500) {
+              return (
+                stats.getBoundingClientRect().bottom <= table.getBoundingClientRect().top &&
+                body.clientHeight >= 280 &&
+                document.scrollingElement.scrollHeight > innerHeight &&
+                document.scrollingElement.scrollWidth <= innerWidth + 1
+              );
+            }
             return (
               stats.getBoundingClientRect().bottom <= table.getBoundingClientRect().top &&
               body.clientHeight > 40 &&

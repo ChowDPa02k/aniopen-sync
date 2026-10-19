@@ -50,6 +50,7 @@ body {
   flex-shrink: 0;
 }
 .tasks-table-viewport {
+  --task-table-page-scroll: 0;
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -147,5 +148,24 @@ body {
   }
   .ant-pro-page-container-children-container {
     padding: 14px !important;
+  }
+}
+@media (max-width: 767px), (max-height: 500px) {
+  .sync-layout {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+  .sync-layout > .ant-layout,
+  .sync-layout .ant-pro-layout-container {
+    height: auto;
+  }
+  .sync-layout .ant-pro-layout-content {
+    overflow: visible;
+  }
+  .tasks-table-viewport {
+    --task-table-page-scroll: 1;
+    flex: none;
+    overflow: visible;
   }
 }
