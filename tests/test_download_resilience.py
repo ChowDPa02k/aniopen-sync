@@ -48,6 +48,30 @@ def test_external_rebuild_can_be_disabled_without_queue_scans(app_client, engine
     )
 
 
+@pytest.mark.parametrize("http_status", [200, 400])
+@pytest.mark.parametrize("completed", [False, True])
+def test_missing_gid_keeps_completed_state_and_does_not_resubmit(app_client, engine, http_status, completed):
+    client, app, cfg = app_client
+    cfg["tracking"]["external_rebuild_enabled"] = False
+    assert client.put("/api/config", json=cfg).status_code == 200
+    row = sync(client, app)[0]
+    gid = row["engine_id"]
+    if completed:
+        engine.aria[gid].update(status="complete", completedLength="1000", downloadSpeed="0")
+        app.state.service.poll()
+    engine.aria.pop(gid)
+    engine.aria_missing_http_status = http_status
+
+    app.state.service.poll()
+    observed = client.get("/api/tasks").json()["data"][0]
+    assert observed["status"] == ("completed" if completed else "tracking_lost")
+    assert observed["current_engine_id"] == gid
+    assert observed["last_missing_at"] is not None
+    assert "GID 已不可见" in observed["observation_error"]
+    assert len(sync(client, app)) == 1
+    assert engine.add_count == 1
+
+
 def test_torrent_rebuild_uses_content_hash_and_directory(app_client, engine):
     client, app, cfg = app_client
     engine.mode = "torrent"

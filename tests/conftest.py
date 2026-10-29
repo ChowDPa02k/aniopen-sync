@@ -40,6 +40,7 @@ def engine():
         titles=[TITLE],
         aria_error_after_add=False,
         aria_drop_before_add=False,
+        aria_missing_http_status=400,
         torrent_content=TORRENT,
         feed_content=None,
         qb_use_v1_hash=False,
@@ -50,14 +51,14 @@ def engine():
         def log_message(self, *_):
             pass
 
-        def reply(self, payload, content_type="application/json"):
+        def reply(self, payload, content_type="application/json", status=200):
             body = json.dumps(payload).encode() if content_type == "application/json" else payload
             self.send_response(
                 204
                 if state.qb_new_api
                 and self.path in ("/api/v2/auth/login", "/api/v2/torrents/add")
                 and payload == b"Ok."
-                else 200
+                else status
             )
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
@@ -148,7 +149,9 @@ def engine():
             elif method == "addUri":
                 state.add_count += 1
                 if state.reject:
-                    return self.reply({"error": {"code": 1}, "id": request["id"]})
+                    return self.reply(
+                        {"error": {"code": 1, "message": "Rejected by test engine"}, "id": request["id"]}
+                    )
                 if state.aria_drop_before_add:
                     return self.reply({"id": request["id"]})
                 uris, options = params
@@ -188,7 +191,14 @@ def engine():
             elif method in ("tellStatus", "getOption"):
                 item = state.aria.get(params[0])
                 if item is None:
-                    return self.reply({"error": {"code": 1}, "id": request["id"]})
+                    return self.reply(
+                        {
+                            "jsonrpc": "2.0",
+                            "error": {"code": 1, "message": f"GID {params[0]} is not found"},
+                            "id": request["id"],
+                        },
+                        status=state.aria_missing_http_status,
+                    )
                 result = item if method == "tellStatus" else item["options"]
             else:
                 raise AssertionError(f"Unexpected mutating or unsupported RPC: {method}")

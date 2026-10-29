@@ -67,12 +67,32 @@ class Aria2:
             },
             timeout=self.cfg.timeout,
         )
-        response.raise_for_status()
-        payload = response.json()
-        if "error" in payload:
-            if method == "tellStatus" and payload["error"].get("code") == 1:
+        # aria2 returns JSON-RPC errors with HTTP 400; other HTTP failures still
+        # belong to the transport layer (including proxy/authentication errors).
+        if response.status_code != 400:
+            response.raise_for_status()
+        try:
+            payload = response.json()
+        except ValueError:
+            response.raise_for_status()
+            raise
+        error = payload.get("error") if isinstance(payload, dict) else None
+        if (
+            isinstance(error, dict)
+            and type(error.get("code")) is int
+            and isinstance(error.get("message"), str)
+        ):
+            # Code 1 also covers Unauthorized and invalid parameters. Only the
+            # requested GID's explicit absence should become MissingTask.
+            if (
+                method == "tellStatus"
+                and args
+                and error["code"] == 1
+                and error["message"] == f"GID {args[0]} is not found"
+            ):
                 raise MissingTask("引擎中未找到任务，可能已清理历史记录")
-            raise Rejected(f"aria2 拒绝请求 (code {payload['error'].get('code')})")
+            raise Rejected(f"aria2 拒绝请求 (code {error['code']})")
+        response.raise_for_status()
         return payload["result"]
 
     def begin_batch(self, tracking):
