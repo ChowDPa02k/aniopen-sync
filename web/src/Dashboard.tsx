@@ -204,7 +204,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
           <Typography.Text type="secondary" className="download-meta">
             {bytes(r.downloaded)} /{" "}
             {r.progress_estimated
-              ? `约 ${bytes(r.rss_size_bytes)}`
+              ? bytes(r.rss_size_bytes)
               : bytes(r.total)}{" "}
             · {bytes(r.speed)}/s
           </Typography.Text>
