@@ -20,6 +20,13 @@ export const submissionLabels: Record<string, string> = {
   unknown: "结果待确认",
   failed: "提交失败",
 };
+const missingTaskMessages = new Set([
+  "Task Missing",
+  "引擎中未找到任务，可能已清理历史记录",
+  "GID 已不可见，暂未发现可唯一关联的外部重建任务",
+]);
+export const observationErrorText = (value: string) =>
+  missingTaskMessages.has(value) ? "任务已被清理" : value;
 export const fmt = (value?: string) =>
   value ? new Date(value).toLocaleString("zh-CN", { hour12: false }) : "—";
 export const bytes = (value: number = 0) =>

@@ -47,7 +47,13 @@ import { useTableHeight } from "./useTableHeight";
 const Settings = lazy(() =>
   import("./Settings").then((module) => ({ default: module.Settings })),
 );
-import { statusLabels, submissionLabels, fmt, bytes } from "./utils";
+import {
+  statusLabels,
+  submissionLabels,
+  observationErrorText,
+  fmt,
+  bytes,
+} from "./utils";
 
 const taskStatusOptions = [
   "pending",
@@ -220,7 +226,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
           )}
           {r.observation_error && (
             <Typography.Text type="warning">
-              {r.observation_error}（保留最后状态）
+              {observationErrorText(r.observation_error)}
             </Typography.Text>
           )}
         </Space>

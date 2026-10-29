@@ -16,7 +16,8 @@ class Rejected(Exception):
 
 
 class MissingTask(Exception):
-    pass
+    def __init__(self):
+        super().__init__("Task Missing")
 
 
 def safe_error(exc: Exception) -> str:
@@ -90,7 +91,7 @@ class Aria2:
                 and error["code"] == 1
                 and error["message"] == f"GID {args[0]} is not found"
             ):
-                raise MissingTask("引擎中未找到任务，可能已清理历史记录")
+                raise MissingTask()
             raise Rejected(f"aria2 拒绝请求 (code {error['code']})")
         response.raise_for_status()
         return payload["result"]

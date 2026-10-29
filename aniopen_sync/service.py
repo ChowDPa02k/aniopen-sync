@@ -448,7 +448,7 @@ class Service:
                                     (snapshots[a] for a in self._aliases(row) if a in snapshots), None
                                 )
                                 if item is None:
-                                    raise MissingTask("引擎中未找到任务，可能已清理历史记录")
+                                    raise MissingTask()
                                 values = engine.snapshot(item) | {"current_engine_id": item["hash"]}
                                 self.db.attempt(row["id"], item["hash"], values["status"])
                             else:
@@ -578,7 +578,7 @@ class Service:
                 current_id = current["gid"]
                 claimed[current_id] = row["id"]
         if current is None:
-            raise MissingTask("GID 已不可见，暂未发现可唯一关联的外部重建任务")
+            raise MissingTask()
         values = engine.observe(current_id, snapshots | {current_id: current})
         values["progress_estimated"] = False
         if row["link_type"] == "http" and values["total"] == 0:

@@ -67,7 +67,7 @@ def test_missing_gid_keeps_completed_state_and_does_not_resubmit(app_client, eng
     assert observed["status"] == ("completed" if completed else "tracking_lost")
     assert observed["current_engine_id"] == gid
     assert observed["last_missing_at"] is not None
-    assert "GID 已不可见" in observed["observation_error"]
+    assert observed["observation_error"] == "Task Missing"
     assert len(sync(client, app)) == 1
     assert engine.add_count == 1
 

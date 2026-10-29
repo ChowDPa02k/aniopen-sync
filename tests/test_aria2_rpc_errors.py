@@ -28,7 +28,7 @@ def aria_response(monkeypatch):
 @pytest.mark.parametrize("status", [200, 400])
 def test_missing_gid_is_a_missing_task(aria_response, status):
     engine = aria_response(status, {"jsonrpc": "2.0", "error": MISSING})
-    with pytest.raises(MissingTask, match="引擎中未找到任务"):
+    with pytest.raises(MissingTask, match="^Task Missing$"):
         engine.rpc("tellStatus", GID)
 
 
