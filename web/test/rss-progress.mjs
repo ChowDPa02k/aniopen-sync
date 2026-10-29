@@ -22,7 +22,8 @@ export async function checkRssProgressDisplay(page) {
     await page.getByRole("link", { name: /同步$/ }).click();
     const estimated = page.getByRole("row").filter({ hasText: "Estimated progress.mp4" });
     await expect(estimated.getByText("≈25%", { exact: true })).toBeVisible();
-    await expect(estimated).toContainText("50.0 MB / 约 200.0 MB");
+    await expect(estimated).toContainText("50.0 MB / 200.0 MB");
+    await expect(estimated).not.toContainText("约");
     const rounded = page.getByRole("row").filter({ hasText: "Rounded boundary.mp4" });
     await expect(rounded.getByText("≈99.9%", { exact: true })).toBeVisible();
     await expect(rounded).toContainText("下载中");
